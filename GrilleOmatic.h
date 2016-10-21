@@ -9,26 +9,28 @@
 namespace GrilleOmatic {
 
 	/// GRILLOMATIC MANIFEST
+	/// GRILLOMATIC is an example of implementation of a finite element method to
+	/// illustrate WHAT PEOPLE SHOULDN'T DO when trying to solve linar elastodynamics
+	/// equations for ultrasound propagation. The goal of the GRILLOMATIC module
+	/// is to be able to take into account any homogeneities in the material defined.
+	/// The equations are solved using first order finite element method on a regular
+	/// grid. Hence, eventhough a lot of standard FEM sub routine can be optimized out,
+	/// this type of method WILL LEAD TO POOR ORDER OF CONVERGENCE, POOR MODELLING
+	/// PRECISION OF ARBITRARY SHAPED INHOMOGENEITIES AND GEOMETRIES.
 	///
+	/// Therefore, GRILLOMATIC should be seen rather as a learning tools thant a
+	/// simulation kernel.
 	///
-	///
-	///
-	///
-	///
-	///
-	///
-	///
-	///
+	struct NoSource {};
+
 	template <
-		typename DensityAccessor,
-		typename LawAccessor,
-		typename SourceAccessor
+		typename DensityAccessor, typename LawAccessor, typename SourceAccessor = NoSource
 	> struct Model2D {
 
 		//----------------------------------------------------------------------------//
 		/*! \brief Constructor.
 		*/
-		Model2D(DensityAccessor&& density, LawAccessor&& law, SourceAccessor&& source, size_t nElemX);
+		Model2D(size_t nElemX,DensityAccessor&& density, LawAccessor&& law, SourceAccessor&& source = SourceAccessor{});
 
 		/*! \brief Initializing.
 		*/
@@ -71,7 +73,10 @@ namespace GrilleOmatic {
 		*/
 		LawAccessor lawAccessor_;
 
-		/*!
+		/*! \brief Accessor for source. If not defined as GrilleOmatic::NoSource, the source should
+		satisfies the following static interface:
+
+		std::array<double, 2> eval(size_t g, double time) const;
 		*/
 		SourceAccessor sourceAccessor_;
 		//----------------------------------------------------------------------------//
@@ -281,9 +286,29 @@ namespace GrilleOmatic {
 			const size_t i2 = 2 * i;
 			const double mass = getMass(i);
 			const double mass_rho_inv = 1.0 / (mass * densityAccesor_.getDensity(i));
+			const auto src = sourceAccessor_.eval(i, time);
 
-			y0_[i2/**/] = ts2_ * (mass * sourceAccessor_.eval0(i, time) - y0_[i2/**/]) * mass_rho_inv + 2.0 * y1_[i2/**/] - y2_[i2/**/];
-			y0_[i2 + 1] = ts2_ * (mass * sourceAccessor_.eval1(i, time) - y0_[i2 + 1]) * mass_rho_inv + 2.0 * y1_[i2 + 1] - y2_[i2 + 1];
+			y0_[i2/**/] = ts2_ * (mass * src[0] - y0_[i2/**/]) * mass_rho_inv + 2.0 * y1_[i2/**/] - y2_[i2/**/];
+			y0_[i2 + 1] = ts2_ * (mass * src[1] - y0_[i2 + 1]) * mass_rho_inv + 2.0 * y1_[i2 + 1] - y2_[i2 + 1];
+		}
+	}
+
+	template<typename D, typename L> void Model2D<D, L, NoSource>::forward()
+	{
+		const double time = ts_ * nStep_;
+
+		// Applying stiffness.
+		applyStiffness();
+
+		// Inverting mass and adding previous solutions.
+		for (size_t i = 0; i < nDoF_; ++i)
+		{
+			const size_t i2 = 2 * i;
+			const double mass = getMass(i);
+			const double mass_rho_inv = 1.0 / (mass * densityAccesor_.getDensity(i));
+
+			y0_[i2/**/] = - ts2_ * mass_rho_inv * y0_[i2/**/] + 2.0 * y1_[i2/**/] - y2_[i2/**/];
+			y0_[i2 + 1] = - ts2_ * mass_rho_inv * y0_[i2 + 1] + 2.0 * y1_[i2 + 1] - y2_[i2 + 1];
 		}
 	}
 
@@ -489,5 +514,5 @@ namespace GrilleOmatic {
 	///
 	///
 	///
-	/// FIN GRILLOMATIC.
+	/// END GRILLOMATIC.
 }

@@ -25,15 +25,9 @@ struct Law {
 	double lambda, mu, mu2;
 };
 
-struct NoSource {
-	double eval0(size_t, double) const { return 0.; }
-	double eval1(size_t, double) const { return 0.; }
-};
-
 int main()
 {
-	GrilleOmatic::Model2D<Density, Law, NoSource> grillo(Density{1.0}, Law{1.0, 0.25}, NoSource{}, nElem);
+	GrilleOmatic::Model2D<Density, Law> grillo(nElem, Density{1.0}, Law{1.0, 0.25});
 	grillo.init();
 	std::cout << grillo.computeStableTimeStep() << std::endl;
-
 }
