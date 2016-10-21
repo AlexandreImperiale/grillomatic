@@ -8,7 +8,7 @@
 
 namespace GrilleOmatic {
 
-	/// GRILLOMATIC MANIFEST
+	/// GRILLOMATIC MANIFESTO
 	/// GRILLOMATIC is an example of implementation of a finite element method to
 	/// illustrate WHAT PEOPLE SHOULDN'T DO when trying to solve linar elastodynamics
 	/// equations for ultrasound propagation. The goal of the GRILLOMATIC module
@@ -18,9 +18,10 @@ namespace GrilleOmatic {
 	/// this type of method WILL LEAD TO POOR ORDER OF CONVERGENCE, POOR MODELLING
 	/// PRECISION OF ARBITRARY SHAPED INHOMOGENEITIES AND GEOMETRIES.
 	///
-	/// Therefore, GRILLOMATIC should be seen rather as a learning tools thant a
-	/// simulation kernel.
+	/// In one sentence, the mood around this code is:
 	///
+	///							GRILLOMATIC, THE MODULE YOU WILL HATE TO LOVE....
+
 	struct NoSource {};
 
 	template <
@@ -30,7 +31,7 @@ namespace GrilleOmatic {
 		//----------------------------------------------------------------------------//
 		/*! \brief Constructor.
 		*/
-		Model2D(size_t nElemX,DensityAccessor&& density, LawAccessor&& law, SourceAccessor&& source = SourceAccessor{});
+		Model2D(size_t nElemX, DensityAccessor&& density, LawAccessor&& law, SourceAccessor&& source = SourceAccessor{});
 
 		/*! \brief Initializing.
 		*/
