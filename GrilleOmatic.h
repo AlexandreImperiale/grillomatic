@@ -21,17 +21,16 @@ namespace GrilleOmatic {
 	/// In one sentence, the mood around this code is:
 	///
 	///							GRILLOMATIC, THE MODULE YOU WILL HATE TO LOVE....
-
-	struct NoSource {};
-
 	template <
-		typename DensityAccessor, typename LawAccessor, typename SourceAccessor = NoSource
-	> struct Model2D {
+		typename Density, typename Law, typename Source
+	> class Model2D {
+
+	public:
 
 		//----------------------------------------------------------------------------//
 		/*! \brief Constructor.
 		*/
-		Model2D(size_t nElemX, DensityAccessor&& density, LawAccessor&& law, SourceAccessor&& source = SourceAccessor{});
+		Model2D(size_t nElemX, Density&& density, Law&& law, Source&& source = Source{});
 
 		/*! \brief Initializing.
 		*/
@@ -58,13 +57,15 @@ namespace GrilleOmatic {
 		void write(const std::string& filePath) const;
 		//----------------------------------------------------------------------------//
 
+	private:
+
 		//----------------------------------------------------------------------------//
 		/*! \brief Accessor of the density. The static interface is restricted to returning the
 		value of the density at a specific DoF, namely:
 
 		double getDensity(size_t glob) const;
 		*/
-		DensityAccessor densityAccesor_;
+		Density density_;
 
 		/*! \brief Accessor for constitutive law. The static interface is restricted to computing the
 		(symmetric stress tensor) from the symmetric green-lagrange tensor of the deformation at DoF,
@@ -72,15 +73,17 @@ namespace GrilleOmatic {
 
 		std::array<double, 3> applyConstitutiveLaw(size_t g, const std::array<double, 3>& green_lagrange) const;
 		*/
-		LawAccessor lawAccessor_;
+		Law law_;
 
 		/*! \brief Accessor for source. If not defined as GrilleOmatic::NoSource, the source should
 		satisfies the following static interface:
 
 		std::array<double, 2> eval(size_t g, double time) const;
 		*/
-		SourceAccessor sourceAccessor_;
+		Source source_;
 		//----------------------------------------------------------------------------//
+
+	private:
 
 		//----------------------------------------------------------------------------//
 		/*! \brief Number of group of non-neighbouring element.
@@ -113,6 +116,8 @@ namespace GrilleOmatic {
 		*/
 		double h_, hx_;
 		//----------------------------------------------------------------------------//
+
+	private:
 
 		//----------------------------------------------------------------------------//
 		/*! \brief Applying stiffness.
@@ -175,8 +180,8 @@ namespace GrilleOmatic {
 	///
 	///
 	///
-	template<typename D, typename L, typename S> Model2D<D, L, S>::Model2D(D&& density, L&& law, S&& source, size_t nx)
-		: densityAccesor_(std::move(density)), lawAccessor_(std::move(law)), sourceAccessor_(std::move(source))
+	template<typename D, typename L, typename S> Model2D<D, L, S>::Model2D(size_t nx, D&& density, L&& law, S&& source)
+		: density_(std::move(density)), law_(std::move(law)), source_(std::move(source))
 	{
 		if (nx <= 1) throw std::exception();
 		else
@@ -240,7 +245,7 @@ namespace GrilleOmatic {
 			for (size_t i = 0; i < nDoF_; ++i)
 			{
 				const size_t i2 = 2 * i;
-				const double mass_rho_inv = 1.0 / (getMass(i) * densityAccesor_.getDensity(i));
+				const double mass_rho_inv = 1.0 / (getMass(i) * density_.getDensity(i));
 				y1_[i2/**/] = y0_[i2/**/] * mass_rho_inv;
 				y1_[i2 + 1] = y0_[i2 + 1] * mass_rho_inv;
 			}
@@ -286,30 +291,11 @@ namespace GrilleOmatic {
 		{
 			const size_t i2 = 2 * i;
 			const double mass = getMass(i);
-			const double mass_rho_inv = 1.0 / (mass * densityAccesor_.getDensity(i));
-			const auto src = sourceAccessor_.eval(i, time);
+			const double mass_rho_inv = 1.0 / (mass * density_.getDensity(i));
+			const auto src = source_.eval(i, time);
 
 			y0_[i2/**/] = ts2_ * (mass * src[0] - y0_[i2/**/]) * mass_rho_inv + 2.0 * y1_[i2/**/] - y2_[i2/**/];
 			y0_[i2 + 1] = ts2_ * (mass * src[1] - y0_[i2 + 1]) * mass_rho_inv + 2.0 * y1_[i2 + 1] - y2_[i2 + 1];
-		}
-	}
-
-	template<typename D, typename L> void Model2D<D, L, NoSource>::forward()
-	{
-		const double time = ts_ * nStep_;
-
-		// Applying stiffness.
-		applyStiffness();
-
-		// Inverting mass and adding previous solutions.
-		for (size_t i = 0; i < nDoF_; ++i)
-		{
-			const size_t i2 = 2 * i;
-			const double mass = getMass(i);
-			const double mass_rho_inv = 1.0 / (mass * densityAccesor_.getDensity(i));
-
-			y0_[i2/**/] = - ts2_ * mass_rho_inv * y0_[i2/**/] + 2.0 * y1_[i2/**/] - y2_[i2/**/];
-			y0_[i2 + 1] = - ts2_ * mass_rho_inv * y0_[i2 + 1] + 2.0 * y1_[i2 + 1] - y2_[i2 + 1];
 		}
 	}
 
@@ -470,21 +456,18 @@ namespace GrilleOmatic {
 		const Arr2 g32 = { sol_loc[6] - sol_loc[4], sol_loc[7] - sol_loc[5] };
 
 		// Computing green-lagrange tensor and applying constitutive law.
-		const Arr3 stress0 = lawAccessor_.applyConstitutiveLaw(g, Arr3{ g10[0], g20[0] + g10[1], g20[1] });
-		const Arr3 stress1 = lawAccessor_.applyConstitutiveLaw(g, Arr3{ g10[0], g31[0] + g10[1], g31[1] });
-		const Arr3 stress2 = lawAccessor_.applyConstitutiveLaw(g, Arr3{ g32[0], g20[0] + g32[1], g20[1] });
-		const Arr3 stress3 = lawAccessor_.applyConstitutiveLaw(g, Arr3{ g32[0], g31[0] + g32[1], g31[1] });
+		const Arr3 stress0 = law_.applyConstitutiveLaw(g, Arr3{ g10[0], g20[0] + g10[1], g20[1] });
+		const Arr3 stress1 = law_.applyConstitutiveLaw(g, Arr3{ g10[0], g31[0] + g10[1], g31[1] });
+		const Arr3 stress2 = law_.applyConstitutiveLaw(g, Arr3{ g32[0], g20[0] + g32[1], g20[1] });
+		const Arr3 stress3 = law_.applyConstitutiveLaw(g, Arr3{ g32[0], g31[0] + g32[1], g31[1] });
 
 		// Applying transposed gradient operator.
-		y0_[g2] -= 0.25 * (stress0[0] + stress0[1] + stress1[0] + stress2[1]);
+		y0_[g2/**/] -= 0.25 * (stress0[0] + stress0[1] + stress1[0] + stress2[1]);
 		y0_[g2 + 1] -= 0.25 * (stress0[1] + stress0[2] + stress1[1] + stress2[2]);
-
 		y0_[g2 + 2] += 0.25 * (stress0[0] + stress1[0] - stress1[1] - stress3[1]);
 		y0_[g2 + 3] += 0.25 * (stress0[1] + stress1[1] - stress1[2] - stress3[2]);
-
-		y0_[gg2] += 0.25 * (stress0[1] - stress2[0] + stress2[1] - stress3[0]);
+		y0_[gg2/**/] += 0.25 * (stress0[1] - stress2[0] + stress2[1] - stress3[0]);
 		y0_[gg2 + 1] += 0.25 * (stress0[2] - stress2[1] + stress2[2] - stress3[1]);
-
 		y0_[gg2 + 2] += 0.25 * (stress1[1] + stress2[0] + stress3[0] + stress3[1]);
 		y0_[gg2 + 3] += 0.25 * (stress1[2] + stress2[1] + stress3[1] + stress3[2]);
 	}

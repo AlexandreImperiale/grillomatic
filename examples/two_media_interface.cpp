@@ -7,8 +7,13 @@ static const size_t nDoFX = nElem + 1;
 static const double step = 1.0 / nElem;
 
 struct Density {
-	double density;
-	double getDensity(size_t) const { return density; }
+	double density0, density1;
+	double getDensity(size_t g) const
+	{
+		const size_t gy = g / nDoFX;
+		if( gy * step < 0.3) return density0;
+		else return density1;
+	}
 };
 
 struct Law {
@@ -50,7 +55,7 @@ struct Source {
 
 int main()
 {
-	GrilleOmatic::Model2D<Density, Law, Source> grillo(nElem, Density{1.0}, Law{1.0, 0.25});
+	GrilleOmatic::Model2D<Density, Law, Source> grillo(nElem, Density{1.0, 1.0 / 3.0}, Law{1.0, 0.25});
 	grillo.init();
 	grillo.setTimeStep(grillo.computeStableTimeStep());
 
