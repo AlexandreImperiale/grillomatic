@@ -10,8 +10,9 @@ struct Density {
 	double density0, density1;
 	double getDensity(size_t g) const
 	{
+		const size_t gx = g % nDoFX;
 		const size_t gy = g / nDoFX;
-		if( gy * step < 0.3) return density0;
+		if( gy >= gx ) return density0;
 		else return density1;
 	}
 };
@@ -40,11 +41,11 @@ struct Source {
 		const size_t gy = g / nDoFX;
 		const std::array<double, 2> xyz = { step * gx, step * gy };
 
-		const double norm = (xyz[0] - 0.15) * (xyz[0] - 0.15) + (xyz[1] - 0.15) * (xyz[1] - 0.15);
+		const double norm = (xyz[0] - 0.25) * (xyz[0] - 0.25) + (xyz[1] - 0.15) * (xyz[1] - 0.15);
 		const double sr = 10000.0;
 
 		const double t0 = 0.1;
-		const double tr = 1000.0;
+		const double tr = 10000.0;
 		const double omega = 50.0;
 
 		const double val = std::sin(2.0 * M_PI * omega * (t - t0) ) * std::exp(-(t - t0) * (t - t0) * tr) * std::exp(-norm * sr);
