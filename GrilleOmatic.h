@@ -325,27 +325,10 @@ namespace GrilleOmatic {
 		ofs << "# vtk DataFile Version 3.0" << std::endl;
 		ofs << "Ondo output" << std::endl;
 		ofs << "BINARY" << std::endl;
-		ofs << "DATASET UNSTRUCTURED_GRID" << std::endl;
-
-		// Writing points.
-		ofs << "POINTS " << nDoF_ << " double" << std::endl;
-		for (size_t iy = 0; iy < nDoFX_; ++iy)
-			for (size_t ix = 0; ix < nDoFX_; ++ix)
-				ofs << toBinary<double>(ix * hx_) << toBinary<double>(iy * hx_) << toBinary<double>(0.);
-		ofs << std::endl;
-
-		// Writing cells.
-		ofs << "CELLS " << nElem_ << " " << (5 * nElem_) << std::endl;
-		for (size_t ie = 0; ie < nElem_; ++ie)
-		{
-			const auto g = static_cast<std::uint32_t>(elem2glob(ie));
-			const auto gg = g + static_cast<std::uint32_t>(nDoFX_);
-			ofs << toBinary<std::uint32_t>(4)
-				<< toBinary<std::uint32_t>(g) << toBinary<std::uint32_t>(g + 1) << toBinary<std::uint32_t>(gg + 1) << toBinary<std::uint32_t>(gg);
-		}
-		ofs << "CELL_TYPES " << nElem_ << std::endl;
-		for (size_t ie = 0; ie < nElem_; ++ie)	ofs << toBinary<std::uint32_t>(9);
-		ofs << std::endl;
+		ofs << "DATASET STRUCTURED_POINTS" << std::endl;
+		ofs << "DIMENSIONS " << nDoFX_ << " " << nDoFX_ << " " << 1 << std::endl;
+		ofs << "ORIGIN " << 0. << " " << 0. << " " << 0. << std::endl;
+		ofs << "SPACING " << hx_ << " " << hx_ << " " << 0. << std::endl;
 
 		// Writing solution.
 		ofs << "POINT_DATA " << nDoF_ << std::endl;
