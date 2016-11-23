@@ -86,10 +86,6 @@ namespace GrilleOmatic {
 	private:
 
 		//----------------------------------------------------------------------------//
-		/*! \brief Number of group of non-neighbouring element.
-		*/
-		const static size_t ncolor = 4;
-
 		/*! \brief Compute numbering elements.
 		*/
 		void initNumbering(size_t nx);
@@ -101,8 +97,6 @@ namespace GrilleOmatic {
 		/*! \brief Number of elements in the grid.
 		*/
 		size_t nElem_, nElemX_;
-		std::array<size_t, 2> nElemPerColorX_;
-		std::array<size_t, 4> nElemPerColor_;
 
 		/*! \brief Associated jacobian of the grid.
 		*/
@@ -179,20 +173,6 @@ namespace GrilleOmatic {
 		else
 		{
 			nElemX_ = nx; nElem_ = nx * nx;
-
-			if (nElemX_ % 2 != 0)
-			{
-				nElemPerColorX_[0] = (nElemX_ - 1) / 2 + 1;
-				nElemPerColorX_[1] = (nElemX_ - 1) / 2;
-
-			}
-			else nElemPerColorX_[0] = nElemPerColorX_[1] = nElemX_ / 2;
-
-			nElemPerColor_[0] = nElemPerColorX_[0] * nElemPerColorX_[0];
-			nElemPerColor_[1] = nElemPerColorX_[1] * nElemPerColorX_[0];
-			nElemPerColor_[2] = nElemPerColorX_[0] * nElemPerColorX_[1];
-			nElemPerColor_[3] = nElemPerColorX_[1] * nElemPerColorX_[1];
-
 			nDoFX_ = nElemX_ + 1;
 			nDoF_ = nDoFX_ * nDoFX_;
 		}
@@ -333,37 +313,9 @@ namespace GrilleOmatic {
 	///
 	template<typename D, typename L, typename S> void Model2D<D, L, S>::applyStiffness()
 	{
-		// First color group.
-		for (size_t ie = 0, ne = nElemPerColor_[0]; ie < ne; ++ie)
-		{
-			const size_t ex = 2 * (ie % nElemPerColorX_[0]);
-			const size_t ey = 2 * (ie / nElemPerColorX_[0]);
-			applyLocalStifness(ex, ey);
-		}
-
-		// Second color group.
-		for (size_t ie = 0, ne = nElemPerColor_[1]; ie < ne; ++ie)
-		{
-			const size_t ex = 2 * (ie % nElemPerColorX_[1]) + 1;
-			const size_t ey = 2 * (ie / nElemPerColorX_[1]);
-			applyLocalStifness(ex, ey);
-		}
-
-		// Third color group.
-		for (size_t ie = 0, ne = nElemPerColor_[2]; ie < ne; ++ie)
-		{
-			const size_t ex = 2 * (ie % nElemPerColorX_[0]);
-			const size_t ey = 2 * (ie / nElemPerColorX_[0]) + 1;
-			applyLocalStifness(ex, ey);
-		}
-
-		// Fourth color group.
-		for (size_t ie = 0, ne = nElemPerColor_[3]; ie < ne; ++ie)
-		{
-			const size_t ex = 2 * (ie % nElemPerColorX_[1]) + 1;
-			const size_t ey = 2 * (ie / nElemPerColorX_[1]) + 1;
-			applyLocalStifness(ex, ey);
-		}
+		for (size_t iey = 0; iey < nElemX_; ++iey)
+			for (size_t iex = 0; iex < nElemX_; ++iex)
+				applyLocalStifness(iex, iey);
 	}
 
 	template<typename D, typename L, typename S> void Model2D<D, L, S>::applyLocalStifness(size_t iex, size_t iey)
