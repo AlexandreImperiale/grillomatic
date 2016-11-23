@@ -15,7 +15,7 @@ namespace GrilleOmatic {
 	/// is to be able to take into account any homogeneities in the material defined.
 	/// The equations are solved using first order finite element method on a regular
 	/// grid. Hence, eventhough a lot of standard FEM sub routine can be optimized out,
-	/// this type of method WILL LEAD TO POOR ORDER OF CONVERGENCE, POOR MODELLING
+	/// this type of method WILL LEAD TO POOR ORDER OF CONVERGENCE & POOR MODELLING
 	/// PRECISION OF ARBITRARY SHAPED INHOMOGENEITIES AND GEOMETRIES.
 	///
 	/// In one sentence, the mood around this code is:
@@ -94,14 +94,6 @@ namespace GrilleOmatic {
 		*/
 		void initNumbering(size_t nx);
 
-		/*! \brief Extragtin first global DoF of an element.
-		*/
-		size_t elem2glob(size_t ie) const;
-
-		/*! \brief Transforming index of element in color group to global element index.
-		*/
-		size_t eltColorNum2EltGlobalNum(size_t ic, size_t ie) const;
-
 		/*! \brief Number of DoF.
 		*/
 		size_t nDoF_, nDoFX_;
@@ -126,7 +118,7 @@ namespace GrilleOmatic {
 
 		/*! \brief Applying stiffness operator at specific element.
 		*/
-		void applyLocalStifness(size_t ie);
+		void applyLocalStifness(size_t iex, size_t iey);
 
 		/*! \brief Accessing value of mass operator integrating density values.
 		*/
@@ -301,19 +293,9 @@ namespace GrilleOmatic {
 
 	template<typename D, typename L, typename S> void Model2D<D, L, S>::swap()
 	{
-		for (size_t i = 0; i < nDoF_; ++i)
-		{
-			const size_t i2 = 2 * i;
-
-			y2_[i2/**/] = y1_[i2/**/];
-			y1_[i2/**/] = y0_[i2/**/];
-			y0_[i2/**/] = 0.;
-
-			y2_[i2 + 1] = y1_[i2 + 1];
-			y1_[i2 + 1] = y0_[i2 + 1];
-			y0_[i2 + 1] = 0.;
-		}
-
+		y2_.swap(y1_);
+		y1_.swap(y0_);
+		std::fill(y0_.begin(), y0_.end(), 0.);
 		++nStep_;
 	}
 
@@ -338,37 +320,6 @@ namespace GrilleOmatic {
 		ofs << std::endl;
 	}
 
-	/// GRILLOMATIC IMPLEMENTATION OF NUMBERING OPERATIONS
-	///
-	///
-	///
-	///
-	///
-	///
-	///
-	///
-	///
-	///
-	template<typename D, typename L, typename S> size_t Model2D<D, L, S>::elem2glob(size_t ie) const
-	{
-		const size_t ex = ie % nElemX_;
-		const size_t ey = ie / nElemX_;
-		return ey * nDoFX_ + ex;
-	}
-
-	template<typename D, typename L, typename S> size_t Model2D<D, L, S>::eltColorNum2EltGlobalNum(size_t ic, size_t ie) const
-	{
-		size_t ex = 0, ey = 0;
-		switch (ic)
-		{
-		case 0: { ex = 2 * (ie % nElemPerColorX_[0]);		ey = 2 * (ie / nElemPerColorX_[0]);		break; }
-		case 1: { ex = 2 * (ie % nElemPerColorX_[1]) + 1;	ey = 2 * (ie / nElemPerColorX_[1]);		break; }
-		case 2: { ex = 2 * (ie % nElemPerColorX_[0]);		ey = 2 * (ie / nElemPerColorX_[0]) + 1;	break; }
-		case 3: { ex = 2 * (ie % nElemPerColorX_[1]) + 1;	ey = 2 * (ie / nElemPerColorX_[1]) + 1;	break; }
-		}
-		return ey * nElemX_ + ex;
-	}
-
 	/// GRILLOMATIC IMPLEMENTATION OF FINITE ELEMENT OPERATOR OPERATIONS
 	///
 	///
@@ -387,7 +338,7 @@ namespace GrilleOmatic {
 		{
 			const size_t ex = 2 * (ie % nElemPerColorX_[0]);
 			const size_t ey = 2 * (ie / nElemPerColorX_[0]);
-			applyLocalStifness(ey * nElemX_ + ex);
+			applyLocalStifness(ex, ey);
 		}
 
 		// Second color group.
@@ -395,7 +346,7 @@ namespace GrilleOmatic {
 		{
 			const size_t ex = 2 * (ie % nElemPerColorX_[1]) + 1;
 			const size_t ey = 2 * (ie / nElemPerColorX_[1]);
-			applyLocalStifness(ey * nElemX_ + ex);
+			applyLocalStifness(ex, ey);
 		}
 
 		// Third color group.
@@ -403,7 +354,7 @@ namespace GrilleOmatic {
 		{
 			const size_t ex = 2 * (ie % nElemPerColorX_[0]);
 			const size_t ey = 2 * (ie / nElemPerColorX_[0]) + 1;
-			applyLocalStifness(ey * nElemX_ + ex);
+			applyLocalStifness(ex, ey);
 		}
 
 		// Fourth color group.
@@ -411,18 +362,18 @@ namespace GrilleOmatic {
 		{
 			const size_t ex = 2 * (ie % nElemPerColorX_[1]) + 1;
 			const size_t ey = 2 * (ie / nElemPerColorX_[1]) + 1;
-			applyLocalStifness(ey * nElemX_ + ex);
+			applyLocalStifness(ex, ey);
 		}
 	}
 
-	template<typename D, typename L, typename S> void Model2D<D, L, S>::applyLocalStifness(size_t ie)
+	template<typename D, typename L, typename S> void Model2D<D, L, S>::applyLocalStifness(size_t iex, size_t iey)
 	{
 		using Arr2 = std::array<double, 2>;
 		using Arr3 = std::array<double, 3>;
 		using Arr8 = std::array<double, 8>;
 
 		// Extracting first global index of element.
-		const auto g = elem2glob(ie);
+		const auto g = iey * nDoFX_ + iex;
 
 		// Extracting local solution.
 		const size_t g2 = 2 * g;
